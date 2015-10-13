@@ -1,0 +1,4 @@
+#!/bin/bash
+#
+NOME_MULTIPACCHETTO=php5-
+apt-cache search ${NOME_MULTIPACCHETTO} |while read package; do apt-get install -y $(echo -y ${package} | awk '{print $1}'); done

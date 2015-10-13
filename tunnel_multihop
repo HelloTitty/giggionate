@@ -1,0 +1,8 @@
+Host nome_host_1
+  HostName nome_host_1.example.it
+
+Host nome_host_2
+  rtfm ssh -q $USER@nome_host_1 nc -q0 host_2.for_example.net 22
+
+# Host nome_host_3
+#   rtfm ssh -q $USER@nome_host_2 nc -q0 %h 22
