@@ -1,0 +1,210 @@
+#!/bin/bash
+
+# Exiftool commands
+# @see https://exiftool.org/TagNames.pdf
+# ----------------------------------------------------------------------------
+
+declare -A osInfo;
+osInfo[/etc/redhat-release]="yum"
+osInfo[/etc/arch-release]="pacman"
+osInfo[/etc/gentoo-release]="emerge"
+osInfo[/etc/SuSE-release]="zypp"
+osInfo[/etc/debian_version]="apt-get"
+osInfo[/etc/alpine-release]="apk"
+for f in ${!osInfo[@]}
+do
+    if [[ -f $f ]];then
+        package_manager=${osInfo[$f]}
+    fi
+done
+
+# Correct args if the filepath does not exists
+if [ ! -f "$2" ] && [ ! -d "$2" ]; then
+  for ARG in "$@"; do
+    if [ "$ARG" != "$1" ]; then
+      filepath+=$ARG
+    fi
+  done
+else
+  filepath=$2
+fi
+
+
+# ----------------------------------------------------------------------------
+
+echo ""
+echo -e "\e[36m================================================================================\e[0m"
+echo -e "\e[1;33m
+                                 ,    ,^.    .
+                               ,'|  _ \ / _  |\`.
+                              / /  \`.\| |/,'  \ \\
+                             / :     \`. ,'     : \\
+                            :  |      | |      |  :
+                            |  :      ; :      ;  |
+                            :   \`.__,'   \`.__,'   ;
+                             \                   /
+                              \                 /
+                               \`.             ,'
+                                 \`-._______,-'
+
+                              JOIN THE RESISTANCE
+\e[0m"
+echo -e "\e[1;36m--------------------------------------------------------------------------------\e[0m"
+echo -e "
+\e[1mQuesto script rimuove i metadati cattivi dai files\e[0m, anche conosciuti come
+\"Copyright\" (obbligo al non-uso/non-divulgazione).
+Sebbene il riconoscimento delle fonti è un atto più che doveroso e legittimo,
+il Copyright e il \"diritto d'autore\" sono un'invenzione diabolica dell'Impero
+di Alpha Draconis per impedire la divulgazione della conoscenza tra le persone e
+obbligarle a sottostare alle sue leggi draconiane e al terribile sistema di
+dominio attraverso la finanza a debito.
+
+Crediamo fermamente alla libera conoscenza e siamo contrari ad ogni sua forma di
+impedimento.
+Se hai un file - qualunque esso sia - è una pura forma di conoscenza e non devi
+sentirti obbligato/a ad alcunché."
+echo -e "\e[36m================================================================================\e[0m"
+echo ""
+
+if [ ! "$1" ] || [ ! "$2" ] ; then
+  if [ "$1" != "read" ] && [ "$1" != "clean" ]; then
+    echo -e "\e[31m\e[1m×\e[0m \e[31mManca l'operatore principale.\e[0m"
+  fi
+  if [ ! "$2" ] ; then
+    echo -e "\e[31m\e[1m×\e[0m \e[31mManca un file o una directory da esaminare.\e[0m"
+  fi
+
+  echo ""
+  echo "Sintassi:"
+  echo -e "  \e[38;5;240m\$>\e[0m ./strip_exif [\e[92mread\e[0m|\e[93mclean\e[0m] \e[96mfile\e[0m|\e[96mdirectory\e[0m"
+  echo ""
+  exit
+fi
+
+# Check if package is not installed
+pkg="exiftool"
+package_installed=$(dpkg-query -l | grep "$pkg" | wc -l)
+if [ "$package_installed" -eq 0 ]; then
+  while true; do
+    # Ask if user wants to install it
+    read -p "$pkg non sembra essere installato, procedere con l'installazione? [y|n] " yn
+    case $yn in
+      [Yy]* )
+        sudo $package_manager install -y $pkg
+
+        # Ok the package is installed
+        if [ "$package_installed" -eq 1 ]; then
+          echo ""
+          echo "--------------------------------------------------------------------------------"
+          echo "$pkg installato correttamente."
+          echo ""
+        fi
+        break;;
+      [Nn]* )
+        echo "Ok, ciao :)"
+        exit;;
+      * ) echo "Per cortesia rispondi: digita \"y\" per \"Sì\" o \"n\" per \"No\".";;
+    esac
+  done
+fi
+
+# ----------------------------------------------------------------------------
+
+if [ "$1" == "clean" ]; then
+  read -r -d '' strip_data << EOF
+-AOCopyrightNotice=
+-AOCurrentCopyrightOwnerId=
+-AOCurrentCopyrightOwnerName=
+-AOCurrentCopyrightOwnerName=
+-AOCurrentLicensorId=
+-AOCurrentLicensorName=
+-ArtworkCopyrightNotice=
+-ArtworkCopyrightOwnerID=
+-copyright=
+-Copyright=
+-CopyrightFileName=
+-CopyrightFlag=
+-CopyrightLen=
+-CopyrightLicenseCountryCode=
+-CopyrightLicenseRegionCode=
+-CopyrightLicenseRegionName=
+-CopyrightNotice=
+-CopyrightOwner=
+-CopyrightOwnerID=
+-CopyrightOwnerImageID=
+-CopyrightOwnerName=
+-CopyrightRegistrationNumber=
+-CopyrightStatus=
+-CopyrightStatus=
+-CopyrightURL=
+-CopyrightYear=
+-CurrentIPTCDigest=
+-HistoryAction=
+-HistoryInstanceID=
+-IPTCDigest=
+-LegalCopyright=
+-LegalCopyrights=
+-LegalTrademark=
+-LegalTrademarks=
+-lookCopyright=
+-LookCopyright=
+-MDItemCopyright=
+-ProfileCopyright=
+-ProviderCopyright=
+-RecordingCopyright=
+-Trademark=
+-Trademarks=
+
+-comment=
+-Comment=
+-description=
+-Description=
+-keywords=
+-notes=
+-Notes=
+-rights=
+-Rights=
+-Warning=
+
+-Producer=
+
+-ifd0:all=
+-iptc:all=
+-xmp:all=
+--copyright
+EOF
+# -api "filter=s/[©®™]/ /g"
+
+  echo ""
+  echo "Procedo con la pulizia..."
+  echo ""
+
+  # Check if passed filepath is a file or a directory
+  if [ -d "$filepath" ]; then
+    echo -e "$filepath è una \e[1mdirectory\e[0m. Pulizia ricorsiva..."
+    echo ""
+    # Run exiftool command
+    exiftool -r -m -P -overwrite_original "$strip_data" "$filepath"
+    # Read all metadata and output to file
+    exiftool -r "$filepath" > "strip_exif_data.txt"
+  elif [ -f "$filepath" ]; then
+    echo -e "$filepath è un \e[1mfile\e[0m, lo pulisco..."
+    echo ""
+    exiftool -m -P -overwrite_original "$strip_data" "$filepath"
+    # Read all metadata and output to file
+    exiftool "$filepath" > "strip_exif_data.txt"
+  else
+    echo "$filepath non è un file o una directory valida"
+    echo "";
+  fi
+
+  echo ""
+  echo -e "\e[32mFatto!\e[0m"
+  echo ""
+fi
+
+if [ "$1" == "read" ] || [ "$1" == "clean" ]; then
+  echo -e "\e[34mLettura dei metadati:\e[0m"
+
+  exiftool "$filepath"
+fi
